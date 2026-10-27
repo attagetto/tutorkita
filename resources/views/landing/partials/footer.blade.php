@@ -1,0 +1,7 @@
+<footer class="landing-footer" id="footer">
+    <div class="footer-main">
+        <div class="footer-brand-column" data-reveal><a class="footer-brand" href="{{ route('home') }}#top" aria-label="TutorKita"><img src="{{ asset('assets/tutorkita/tutorkita-logo.svg') }}" alt="TutorKita" width="180" height="60"></a><div class="social-links" aria-label="Media sosial TutorKita"><button type="button" aria-label="Facebook TutorKita" data-social-info><span class="social-facebook">f</span></button><button type="button" aria-label="X TutorKita" data-social-info><span class="social-x">𝕏</span></button><button type="button" aria-label="YouTube TutorKita" data-social-info><x-icon name="youtube" /></button><button type="button" aria-label="LinkedIn TutorKita" data-social-info><span class="social-linkedin">in</span></button></div><div class="footer-contact"><span>Narahubung</span><a href="tel:082143592001">082143592001</a></div></div>
+        <form class="newsletter-form" data-newsletter-form novalidate><label for="newsletter-email">Kabar terbaru dari TutorKita</label><div class="newsletter-controls"><input id="newsletter-email" name="email" type="email" placeholder="Masukkan alamat email" autocomplete="email" required><button type="submit">Kirim</button></div><p>Cerita belajar dan informasi kegiatan TutorKita.</p></form>
+    </div>
+    <div class="footer-bottom"><span>© {{ date('Y') }} TutorKita</span><span>Bimbingan Belajar Gratis</span></div>
+</footer>
