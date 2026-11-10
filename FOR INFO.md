@@ -245,3 +245,14 @@ All future pages should keep the supplied TutorKita logo artwork intact, use the
 Both pages keep the split panel while the viewport is wide enough; below 520px the blue panel moves below the form. Entrance and ambient animations follow the shared reduced-motion preference.
 
 Authentication and database persistence are not active. Future support will require account and learner-profile records, secure server-side password handling, authentication/session management, and authorization. This frontend-only work adds no migration, model, database, or backend authentication handler.
+
+## Learning Workspace SPA (November 2026)
+
+- `/dashboard` is the authenticated entry point for one client-side learning workspace with seven sidebar destinations: Beranda, Katalog Tutor, Sesi Belajar, Materi Pembelajaran, Tugas & Penilaian, Notifikasi, and Riwayat Sesi.
+- The six non-home views are rendered with the initial dashboard response in `resources/views/dashboard/pages/workspace.blade.php`; JavaScript switches visible sections and updates the URL hash. The sidebar and topbar stay in place, browser Back/Forward changes the active view, and revisiting a page does not request another HTML page.
+- `/subjects` remains as a compatibility route and redirects authenticated users to the Materi Pembelajaran workspace view. The previous standalone subjects template remains in the repository but is not used by that route.
+- The workspace views follow the supplied TutorKita screen references: shared blue/navy branding, pale-blue banners, compact cards and filters, and responsive columns. Mobile navigation continues to use the existing drawer.
+- Tutor cards, schedules, materials, assignments, notifications, and history shown in the workspace are illustrative local data. Search inputs and tab selection respond locally; actions that need backend services show local feedback. No database was added.
+- The workspace content is bundled into the initial page, so there are no per-view network fetches. This favors slower connections at the cost of a larger initial HTML response.
+- Account flows currently do use server-side Laravel session authentication backed by `storage/app/private/users.json` through `LocalUserStore` and `FileUserProvider`. Registration validates input and stores a password hash; login checks the same local record and protects `/dashboard`. This is separate from the mock learning data and does not use the database migrations.
+- On Windows, `composer run dev` no longer starts Laravel Pail in its `concurrently --kill-others` group: Pail requires `pcntl`, which PHP for Windows does not provide. The optional `composer run logs` script remains for environments where Pail is supported. If the browser cannot connect, check for stale/duplicate `php artisan serve` processes and remove a stale `public/hot` marker when no Vite dev server is running; `npm run build` produces the local fallback assets.

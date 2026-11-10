@@ -3,7 +3,7 @@
 @section('title', 'Dashboard')
 
 @section('content')
-    <div class="dashboard-page">
+    <div class="dashboard-page spa-page" data-spa-page="dashboard">
         <div class="welcome-banner animate-in">
             <div class="welcome-copy">
                 <span class="eyebrow"><span class="eyebrow-dot"></span> {{ $today_label }}</span>
@@ -78,4 +78,5 @@
         <section class="closing-banner" aria-label="Ajakan belajar"><div class="closing-icon"><x-icon name="sparkle" /></div><div><h2>Setiap langkah kecil berarti.</h2><p>Konsisten belajar hari ini, lebih siap menyambut masa depan.</p></div><a class="button button-white" href="#jadwal">Mulai belajar <x-icon name="arrow-right" class="icon-sm" /></a></section>
         <footer class="dashboard-footer"><span>© {{ date('Y') }} TutorKita</span><span>Bimbingan belajar gratis untuk semua.</span><a href="#dashboard-top">Kembali ke atas ↑</a></footer>
     </div>
+    @include('dashboard.pages.workspace')
 @endsection

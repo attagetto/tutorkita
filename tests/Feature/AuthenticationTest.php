@@ -4,10 +4,13 @@ namespace Tests\Feature;
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
 {
+    use RefreshDatabase;
+
     private string $userStorePath;
 
     protected function setUp(): void
@@ -131,6 +134,24 @@ class AuthenticationTest extends TestCase
         ])->assertRedirect('/dashboard');
 
         $this->get('/dashboard')->assertSeeText('Selamat datang kembali, Andi!');
+    }
+
+    public function test_dashboard_renders_the_full_interactive_tutor_catalog(): void
+    {
+        $this->post('/register', $this->registrationData('Budi', 'budi@test.com', 'Budi123!'));
+        $this->post('/login', ['contact' => 'budi@test.com', 'password' => 'Budi123!'])
+            ->assertRedirect('/dashboard');
+
+        $response = $this->get('/dashboard#tutors')->assertOk()
+            ->assertSeeText('Katalog Tutor')
+            ->assertSeeText('Alya Putri')
+            ->assertSeeText('Rizky Maulana')
+            ->assertSee('data-catalog-filter="subject"', false)
+            ->assertSee('data-catalog-filter="schedule"', false)
+            ->assertSee('data-catalog-sort', false)
+            ->assertSee('data-catalog-pagination', false);
+
+        $this->assertSame(24, substr_count($response->getContent(), 'data-catalog-card'));
     }
 
     /** @return array<string, string> */

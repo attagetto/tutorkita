@@ -77,6 +77,7 @@ class FileUserProvider implements UserProvider
             'email' => $record['email'] ?? $record['phone'] ?? null,
             'phone' => $record['phone'] ?? null,
             'password' => $record['password'],
+            'role' => $record['role'] ?? 'student',
             'created_at' => $record['created_at'],
         ]);
 

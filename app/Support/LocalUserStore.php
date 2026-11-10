@@ -87,6 +87,7 @@ class LocalUserStore
                 'phone' => $isEmail ? null : $contact,
                 'contact' => $normalized,
                 'password' => Hash::make($password),
+                'role' => 'student',
                 'created_at' => now()->toIso8601String(),
             ];
 
