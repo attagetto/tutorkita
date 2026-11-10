@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class AssignmentTest extends TestCase
@@ -174,5 +175,6 @@ class AssignmentTest extends TestCase
         foreach ($users as &$user) if ((string) $user['id'] === $id) $user['role'] = $role;
         unset($user);
         file_put_contents($this->userStorePath, json_encode($users, JSON_THROW_ON_ERROR));
+        DB::table('user_roles')->updateOrInsert(['user_id' => $id], ['role' => $role, 'created_at' => now(), 'updated_at' => now()]);
     }
 }

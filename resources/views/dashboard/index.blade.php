@@ -15,7 +15,7 @@
                 <span class="art-orbit orbit-one"></span><span class="art-orbit orbit-two"></span>
                 <div class="art-book"><x-icon name="book-open" /></div>
                 <div class="art-note note-one"><x-icon name="sparkle" /></div>
-                <div class="art-note note-two"><span>72%</span><small>progress</small></div>
+                <div class="art-note note-two"><span>{{ $material_progress_percent }}%</span><small>progress</small></div>
             </div>
         </div>
 
@@ -33,8 +33,8 @@
                 </div>
                 <div class="tabs" role="tablist" aria-label="Filter jadwal">
                     <button class="tab-button is-active" type="button" role="tab" aria-selected="true" data-schedule-filter="all">Semua <span>{{ count($schedules) }}</span></button>
-                    <button class="tab-button" type="button" role="tab" aria-selected="false" data-schedule-filter="today">Hari ini <span>3</span></button>
-                    <button class="tab-button" type="button" role="tab" aria-selected="false" data-schedule-filter="upcoming">Mendatang <span>2</span></button>
+                    <button class="tab-button" type="button" role="tab" aria-selected="false" data-schedule-filter="today">Hari ini <span>{{ $today_schedule_count }}</span></button>
+                    <button class="tab-button" type="button" role="tab" aria-selected="false" data-schedule-filter="upcoming">Mendatang <span>{{ $upcoming_schedule_count }}</span></button>
                 </div>
                 <div class="schedule-list" id="jadwal-list">
                     @foreach ($schedules as $index => $schedule)
@@ -45,19 +45,21 @@
             </section>
 
             <section class="panel weekly-panel" id="progress" aria-labelledby="weekly-heading">
-                <div class="panel-heading compact-heading"><div><span class="section-kicker">KONSISTENSI</span><h2 id="weekly-heading">Progress belajar</h2></div><button class="icon-button quiet-button" type="button" aria-label="Informasi progress" data-toast="Target mingguanmu 10 jam. Kamu sudah belajar 8,5 jam."><x-icon name="info" /></button></div>
-                <div class="progress-summary"><div><strong>8,5 <small>jam</small></strong><span>Minggu ini</span></div><span class="trend-pill"><x-icon name="trend" class="icon-sm" /> +12%</span></div>
+                <div class="panel-heading compact-heading"><div><span class="section-kicker">KONSISTENSI</span><h2 id="weekly-heading">Progress belajar</h2></div><button class="icon-button quiet-button" type="button" aria-label="Informasi progress" data-toast="Durasi dihitung dari sesi belajar yang sudah selesai minggu ini."><x-icon name="info" /></button></div>
+                <div class="progress-summary"><div><strong>{{ $progress['weekly_hours'] }} <small>jam</small></strong><span>Minggu ini</span></div><span class="trend-pill"><x-icon name="trend" class="icon-sm" /> {{ $progress['weekly_session_count'] }} sesi</span></div>
                 <div class="weekly-chart" role="img" aria-label="Grafik jam belajar dari Senin sampai Minggu">
                     @foreach ($progress['weekly'] as $day)
                         <div class="chart-column"><div class="chart-track"><span class="chart-bar" style="--bar-height: {{ $day['value'] }}%"></span></div><span class="chart-day">{{ $day['day'] }}</span></div>
                     @endforeach
                 </div>
-                <div class="chart-legend"><span><i></i> Waktu belajar</span><span>Target 10 jam</span></div>
+                <div class="chart-legend"><span><i></i> Durasi sesi selesai</span><span>{{ $progress['weekly_session_count'] }} sesi minggu ini</span></div>
                 <div class="subject-progress" id="mata-pelajaran">
-                    <div class="subsection-title"><h3>Progress mata pelajaran</h3><button class="text-link small-link" type="button" data-toast="Ringkasan mata pelajaran menggunakan data contoh.">Detail</button></div>
-                    @foreach ($progress['subjects'] as $subject)
+                    <div class="subsection-title"><h3>Progress mata pelajaran</h3><button class="text-link small-link" type="button" data-toast="Progress dihitung dari materi yang sudah selesai.">Detail</button></div>
+                    @forelse ($progress['subjects'] as $subject)
                         <div class="subject-progress-row"><div class="subject-progress-label"><span>{{ $subject['name'] }}</span><strong>{{ $subject['value'] }}%</strong></div><div class="progress-track"><span class="progress-fill fill-{{ $subject['color'] }}" style="width: {{ $subject['value'] }}%"></span></div></div>
-                    @endforeach
+                    @empty
+                        <p class="empty-state">Progress mata pelajaran akan muncul setelah kamu menyelesaikan materi.</p>
+                    @endforelse
                 </div>
             </section>
         </div>

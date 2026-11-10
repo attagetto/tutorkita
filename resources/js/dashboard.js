@@ -1,6 +1,14 @@
 const dashboard = document.querySelector('.dashboard-body');
 
 if (dashboard) {
+    document.querySelectorAll('dialog').forEach((dialog) => {
+        dialog.addEventListener('click', (event) => {
+            if (event.target === dialog && !dialog.hasAttribute('aria-busy')) dialog.close();
+        });
+        dialog.addEventListener('cancel', (event) => {
+            if (dialog.hasAttribute('aria-busy')) event.preventDefault();
+        });
+    });
     const sidebar = document.querySelector('#main-sidebar');
     const sidebarToggle = document.querySelector('[data-sidebar-toggle]');
     const scrim = document.querySelector('[data-sidebar-close].mobile-scrim');
@@ -8,6 +16,12 @@ if (dashboard) {
     const profileMenu = document.querySelector('[data-profile-menu]');
     const toastRegion = document.querySelector('[data-toast-region]');
     const searchInput = document.querySelector('[data-dashboard-search]');
+    const spaEnabled = Boolean(document.querySelector('[data-spa-page]'));
+    const subjectManagementPage = document.querySelector('[data-integrated-subjects]');
+    const subjectSearch = subjectManagementPage?.querySelector('[data-subject-search]');
+    const subjectConfirmDialog = document.querySelector('[data-subject-confirm-dialog]');
+    const subjectEditDialog = document.querySelector('[data-subject-edit-dialog]');
+    let pendingSubjectRemoveForm = null;
     const subjectFilter = document.querySelector('#tutor-subject-filter');
     const levelFilter = document.querySelector('#subject-level-filter');
     const pageTitles = { dashboard: 'Beranda', tutors: 'Katalog Tutor', sessions: 'Sesi Belajar', materials: 'Materi Pembelajaran', assignments: 'Tugas & Penilaian', notifications: 'Notifikasi', history: 'Riwayat Sesi' };
@@ -55,8 +69,10 @@ if (dashboard) {
         window.scrollTo({ top: 0, behavior: 'instant' });
     };
 
-    document.querySelectorAll('[data-page-link]').forEach((link) => link.addEventListener('click', () => showPage(link.dataset.pageLink)));
-    window.addEventListener('popstate', () => showPage(location.hash.slice(1) || 'dashboard', false));
+    if (spaEnabled) {
+        document.querySelectorAll('[data-page-link]').forEach((link) => link.addEventListener('click', () => showPage(link.dataset.pageLink)));
+        window.addEventListener('popstate', () => showPage(location.hash.slice(1) || 'dashboard', false));
+    }
 
     document.querySelectorAll('[data-local-filter]').forEach((input) => input.addEventListener('input', () => {
         const group = input.dataset.localFilter;
@@ -93,7 +109,7 @@ if (dashboard) {
         }
     };
 
-    showPage(location.hash.slice(1) || 'dashboard', false);
+    if (spaEnabled) showPage(location.hash.slice(1) || 'dashboard', false);
 
     const showToast = (message) => {
         if (!message || !toastRegion) return;
@@ -111,6 +127,275 @@ if (dashboard) {
         toastRegion.append(toast);
         window.setTimeout(() => dismissToast(toast), 4200);
     };
+
+    const sessionToast = (() => {
+        try {
+            const message = sessionStorage.getItem('tutorkita-subject-toast');
+            sessionStorage.removeItem('tutorkita-subject-toast');
+            return message;
+        } catch {
+            return null;
+        }
+    })();
+    const pageToast = document.querySelector('[data-toast-on-load]')?.textContent.trim();
+    if (sessionToast || pageToast) showToast(sessionToast || pageToast);
+
+    const profileDialog = document.querySelector('[data-profile-dialog]');
+    const tutorApplicationDialog = document.querySelector('[data-tutor-application-dialog]');
+    const adminVerificationDialog = document.querySelector('[data-admin-verification-dialog]');
+    const adminUsersDialog = document.querySelector('[data-admin-users-dialog]');
+    const openRoleDialog = (dialog) => {
+        closeMenus();
+        if (dialog && !dialog.open) dialog.showModal();
+    };
+    document.querySelector('[data-open-profile]')?.addEventListener('click', () => openRoleDialog(profileDialog));
+    document.querySelector('[data-open-tutor-application]')?.addEventListener('click', () => openRoleDialog(tutorApplicationDialog));
+    document.querySelector('[data-open-admin-verification]')?.addEventListener('click', () => openRoleDialog(adminVerificationDialog));
+    document.querySelector('[data-open-admin-users]')?.addEventListener('click', () => openRoleDialog(adminUsersDialog));
+    document.querySelectorAll('[data-role-dialog-close]').forEach((button) => button.addEventListener('click', () => button.closest('dialog')?.close()));
+
+    const applicationForm = document.querySelector('[data-tutor-application-form]');
+    if (applicationForm) {
+        const nameField = applicationForm.elements.applicant_name;
+        const educationField = applicationForm.elements.education_level;
+        const institutionField = applicationForm.elements.institution;
+        const subjectFields = [...applicationForm.querySelectorAll('[name="subject_ids[]"]')];
+        const updatePreview = () => {
+            const name = applicationForm.querySelector('[data-application-preview-name]');
+            const education = applicationForm.querySelector('[data-application-preview-education]');
+            const subjects = applicationForm.querySelector('[data-application-preview-subject]');
+            if (name) name.textContent = nameField.value || 'Nama calon tutor';
+            if (education) education.textContent = [educationField.value, institutionField.value].filter(Boolean).join(' · ') || 'Pendidikan dan institusi';
+            if (subjects) {
+                const selected = subjectFields.filter((field) => field.checked).map((field) => field.parentElement.textContent.trim());
+                subjects.textContent = selected.length ? selected.join(', ') : 'Pilih mata pelajaran di atas';
+            }
+        };
+        applicationForm.addEventListener('input', updatePreview);
+        applicationForm.addEventListener('change', updatePreview);
+        applicationForm.querySelector('[name="avatar"]')?.addEventListener('change', (event) => {
+            const file = event.currentTarget.files?.[0];
+            if (file && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+                event.currentTarget.value = '';
+                showToast('Pilih foto JPG, PNG, atau WebP.');
+                return;
+            }
+            if (file) {
+                const preview = applicationForm.querySelector('[data-application-photo-preview]');
+                const reader = new FileReader();
+                reader.addEventListener('load', () => { if (preview && typeof reader.result === 'string') { preview.src = reader.result; preview.hidden = false; } });
+                reader.readAsDataURL(file);
+            }
+        });
+        applicationForm.addEventListener('submit', () => {
+            const button = applicationForm.querySelector('[data-application-submit]');
+            if (button) { button.disabled = true; button.textContent = 'Mengirim pengajuan…'; }
+            applicationForm.setAttribute('aria-busy', 'true');
+        });
+        updatePreview();
+        if (applicationForm.querySelector('[data-role-form-error]')?.textContent.trim()) openRoleDialog(tutorApplicationDialog);
+    }
+    document.querySelectorAll('.role-form').forEach((form) => form.addEventListener('submit', () => {
+        const submit = form.querySelector('button[type="submit"]');
+        if (submit) { submit.disabled = true; submit.textContent = 'Menyimpan…'; }
+    }));
+    document.querySelectorAll('.tutor-review-actions form').forEach((form) => form.addEventListener('submit', () => {
+        const button = form.querySelector('button[type="submit"]');
+        if (button) { button.disabled = true; button.textContent = 'Memproses…'; }
+    }));
+
+    if (subjectManagementPage) {
+        const materialsArea = document.querySelector('[data-materials-panel]');
+        const materialsViewTabs = [...document.querySelectorAll('[data-material-area]')];
+        const subjectCards = [...subjectManagementPage.querySelectorAll('[data-subject-card]')];
+        const subjectTabs = [...subjectManagementPage.querySelectorAll('[data-subject-tab]')];
+        const subjectLevel = subjectManagementPage.querySelector('[data-subject-level-filter]');
+        const subjectCategory = subjectManagementPage.querySelector('[data-subject-category-filter]');
+        const subjectEmpty = subjectManagementPage.querySelector('[data-subject-empty]');
+        const subjectNoSelection = subjectManagementPage.querySelector('[data-subject-no-selection]');
+        const subjectResultCount = subjectManagementPage.querySelector('[data-subject-result-count]');
+        let subjectDatabaseIds = new Set(subjectCards.map((card) => card.dataset.subjectId));
+        let subjectSearchRequest = 0;
+        let subjectScope = 'all';
+        let pendingSubjectRemoveForm = null;
+
+        const drawSubjectCatalog = async () => {
+            const query = subjectSearch?.value.trim().toLocaleLowerCase('id') ?? '';
+            const level = subjectLevel?.value ?? 'all';
+            const categoryValue = subjectCategory?.value ?? 'all';
+            const category = categoryValue.toLocaleLowerCase('id');
+            const requestId = ++subjectSearchRequest;
+            const params = new URLSearchParams({ search: subjectSearch?.value.trim() ?? '', scope: subjectScope });
+            if (level !== 'all') params.set('level', level);
+            if (categoryValue !== 'all') params.set('category', categoryValue);
+            try {
+                const response = await fetch(`${subjectManagementPage.dataset.searchUrl}?${params}`, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+                if (!response.ok) throw new Error('Pencarian belum dapat dimuat.');
+                const result = await response.json();
+                if (requestId !== subjectSearchRequest) return;
+                subjectDatabaseIds = new Set(result.ids.map(String));
+            } catch {
+                if (requestId !== subjectSearchRequest) return;
+                subjectDatabaseIds = new Set(subjectCards.map((card) => card.dataset.subjectId));
+            }
+            let visible = 0;
+            subjectCards.forEach((card) => {
+                const matchesScope = subjectScope === 'all' || card.dataset.selected === '1';
+                const matchesSearch = !query || card.dataset.search.includes(query);
+                const matchesLevel = level === 'all' || card.dataset.levels.split('|').includes(level.toLocaleLowerCase('id'));
+                const matchesCategory = category === 'all' || card.dataset.category === category;
+                const matches = subjectDatabaseIds.has(card.dataset.subjectId) && matchesScope && matchesSearch && matchesLevel && matchesCategory;
+                card.hidden = !matches;
+                if (matches) visible += 1;
+            });
+            const hasNoSelections = subjectCards.every((card) => card.dataset.selected !== '1');
+            if (subjectEmpty) subjectEmpty.hidden = visible > 0 || (subjectScope === 'mine' && hasNoSelections);
+            if (subjectNoSelection) subjectNoSelection.hidden = !(subjectScope === 'mine' && hasNoSelections);
+            if (subjectResultCount) subjectResultCount.textContent = `${visible} pelajaran ${subjectScope === 'mine' ? 'di daftar belajarmu' : 'tersedia'}`;
+        };
+        const changeMaterialsArea = (area, updateUrl = true) => {
+            const subjectsOpen = area === 'subjects';
+            subjectManagementPage.hidden = !subjectsOpen;
+            materialsArea.hidden = subjectsOpen;
+            materialsViewTabs.forEach((tab) => {
+                const active = tab.dataset.materialArea === area;
+                tab.classList.toggle('is-active', active);
+                tab.setAttribute('aria-pressed', String(active));
+            });
+            if (subjectsOpen && searchInput && subjectSearch) {
+                searchInput.placeholder = 'Cari mata pelajaran...';
+                searchInput.value = subjectSearch.value;
+            }
+            if (!subjectsOpen && searchInput) {
+                searchInput.placeholder = 'Cari materi, mata pelajaran, atau topik...';
+                searchInput.value = document.querySelector('[data-material-search]')?.value ?? '';
+            }
+            if (updateUrl && spaEnabled && location.hash !== '#materials') history.pushState({ page: 'materials' }, '', '#materials');
+        };
+
+        materialsViewTabs.forEach((tab) => tab.addEventListener('click', () => changeMaterialsArea(tab.dataset.materialArea)));
+        subjectTabs.forEach((tab) => tab.addEventListener('click', () => {
+            subjectScope = tab.dataset.subjectTab;
+            subjectTabs.forEach((item) => {
+                const active = item === tab;
+                item.classList.toggle('is-active', active);
+                item.setAttribute('aria-selected', String(active));
+            });
+            subjectManagementPage.classList.add('is-switching');
+            window.setTimeout(() => subjectManagementPage.classList.remove('is-switching'), 220);
+            drawSubjectCatalog();
+        }));
+        subjectSearch?.addEventListener('input', drawSubjectCatalog);
+        subjectLevel?.addEventListener('change', drawSubjectCatalog);
+        subjectCategory?.addEventListener('change', drawSubjectCatalog);
+        if (searchInput && subjectSearch) {
+            searchInput.addEventListener('input', () => {
+                if (subjectManagementPage.hidden) return;
+                subjectSearch.value = searchInput.value;
+                drawSubjectCatalog();
+            });
+            subjectSearch.addEventListener('input', () => {
+                if (!subjectManagementPage.hidden && searchInput) searchInput.value = subjectSearch.value;
+            });
+        }
+        subjectManagementPage.addEventListener('click', (event) => {
+            const editTrigger = event.target.closest('[data-subject-edit-trigger]');
+            if (editTrigger && subjectEditDialog) {
+                const card = editTrigger.closest('[data-subject-card]');
+                const form = subjectEditDialog.querySelector('[data-subject-edit-form]');
+                const subjectSelect = form.querySelector('[data-subject-edit-subject]');
+                const levelSelect = form.querySelector('[data-subject-edit-level]');
+                form.action = card.dataset.updateUrl;
+                subjectSelect.value = card.dataset.subjectId;
+                const fillLevels = (selectedId = '') => {
+                    const option = subjectSelect.selectedOptions[0];
+                    const levels = (option?.dataset.levelMap || '').split('|').filter(Boolean).map((item) => item.split(':'));
+                    levelSelect.replaceChildren(...levels.map(([id, name]) => new Option(name, id, false, String(id) === String(selectedId))));
+                    if (!selectedId && levels.length) levelSelect.value = levels[0][0];
+                };
+                fillLevels(card.dataset.selectedLevel);
+                subjectSelect.onchange = () => fillLevels();
+                subjectEditDialog.showModal();
+                return;
+            }
+            const trigger = event.target.closest('[data-subject-remove-trigger]');
+            if (!trigger || !subjectConfirmDialog) return;
+            event.preventDefault();
+            pendingSubjectRemoveForm = trigger.form;
+            subjectConfirmDialog.querySelector('[data-subject-confirm-name]').textContent = trigger.dataset.subjectName || 'mata pelajaran ini';
+            subjectConfirmDialog.showModal();
+        });
+        subjectManagementPage.querySelectorAll('[data-subject-add-form]').forEach((form) => form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const button = form.querySelector('button');
+            button.disabled = true;
+            try {
+                const response = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': form.querySelector('[name="_token"]')?.value ?? '' } });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message || 'Mata pelajaran belum dapat ditambahkan.');
+                form.closest('[data-subject-card]')?.classList.add('is-adding');
+                try { sessionStorage.setItem('tutorkita-subject-toast', result.message); } catch { /* Continue without persisted feedback. */ }
+                window.setTimeout(() => { window.location.href = '/dashboard?materials=subjects#materials'; }, 200);
+            } catch (error) {
+                showToast(error instanceof Error ? error.message : 'Mata pelajaran belum dapat ditambahkan.');
+                button.disabled = false;
+            }
+        }));
+        subjectEditDialog?.querySelector('[data-subject-edit-cancel]')?.addEventListener('click', () => subjectEditDialog.close());
+        subjectEditDialog?.querySelector('[data-subject-edit-form]')?.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const button = form.querySelector('[type="submit"]');
+            button.disabled = true;
+            try {
+                const response = await fetch(form.action, { method: 'PUT', body: new URLSearchParams(new FormData(form)), headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '' } });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.message || Object.values(result.errors || {}).flat()[0] || 'Perubahan belum dapat disimpan.');
+                try { sessionStorage.setItem('tutorkita-subject-toast', result.message); } catch { /* Continue without persisted feedback. */ }
+                window.location.href = '/dashboard?materials=subjects#materials';
+            } catch (error) {
+                showToast(error instanceof Error ? error.message : 'Perubahan belum dapat disimpan.');
+                button.disabled = false;
+            }
+        });
+        let subjectDeleteInFlight = false;
+        subjectConfirmDialog?.querySelector('[data-subject-confirm-accept]')?.addEventListener('click', async () => {
+            if (!pendingSubjectRemoveForm || subjectDeleteInFlight) return;
+            const form = pendingSubjectRemoveForm;
+            const card = form.closest('[data-subject-card]');
+            const button = subjectConfirmDialog.querySelector('[data-subject-confirm-accept]');
+            subjectDeleteInFlight = true;
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            button.dataset.originalText ||= button.textContent.trim();
+            button.textContent = 'Menghapus…';
+            try {
+                const response = await fetch(form.action, { method: 'DELETE', headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': form.querySelector('[name="_token"]')?.value ?? '' } });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.message || Object.values(result.errors || {}).flat()[0] || 'Mata pelajaran belum dapat dihapus. Coba lagi.');
+                subjectConfirmDialog.close();
+                if (card) {
+                    card.dataset.selected = '0';
+                    card.classList.add('is-removing');
+                }
+                const selectedCount = subjectCards.filter((item) => item.dataset.selected === '1').length;
+                subjectManagementPage.querySelectorAll('[data-subject-selected-count], [data-subject-tab-count]').forEach((count) => { count.textContent = String(selectedCount); });
+                try { sessionStorage.setItem('tutorkita-subject-toast', 'Mata pelajaran berhasil dihapus dari daftar belajarmu.'); } catch { /* Continue without persisted feedback. */ }
+                window.setTimeout(() => { window.location.href = '/dashboard?materials=subjects#materials'; }, 180);
+            } catch (error) {
+                showToast(error instanceof Error ? error.message : 'Mata pelajaran belum dapat dihapus. Coba lagi.');
+            } finally {
+                button.disabled = false;
+                button.removeAttribute('aria-busy');
+                button.textContent = button.dataset.originalText || 'Hapus dari Daftar';
+                subjectDeleteInFlight = false;
+                pendingSubjectRemoveForm = null;
+            }
+        });
+        subjectConfirmDialog?.addEventListener('close', () => { pendingSubjectRemoveForm = null; });
+        changeMaterialsArea(new URLSearchParams(location.search).get('materials') === 'subjects' ? 'subjects' : 'materials', false);
+        drawSubjectCatalog();
+    }
 
     const dismissToast = (toast) => {
         if (!toast.isConnected) return;
@@ -230,10 +515,128 @@ if (dashboard) {
         const materialDialog = document.querySelector('[data-material-dialog]');
         const materialDetail = document.querySelector('[data-material-detail]');
         const materialCsrf = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+        const materialFormDialog = document.querySelector('[data-material-form-dialog]');
+        const materialForm = materialFormDialog?.querySelector('[data-material-form]');
+        const materialFormType = materialForm?.querySelector('[data-material-form-type]');
+        const materialFileLabel = materialForm?.querySelector('[data-material-file-label]');
+        const materialVideoLabel = materialForm?.querySelector('[data-material-video-label]');
+        const materialFile = materialForm?.querySelector('[data-material-file]');
+        const materialVideoInput = materialForm?.querySelector('[name="video_url"]');
+        const materialDeleteDialog = document.querySelector('[data-material-delete-dialog]');
+        let pendingMaterialDelete = null;
         const materialPageSize = 8;
-        let materialSubject = 'all';
+        const initialMaterialParams = new URLSearchParams(location.search);
+        let materialSubject = initialMaterialParams.get('subject') || 'all';
+        if (materialGrade && initialMaterialParams.has('grade')) materialGrade.value = initialMaterialParams.get('grade');
         let materialPage = 1;
         let currentMaterialId = null;
+        const syncMaterialAssetInputs = () => {
+            const type = materialFormType?.value;
+            const video = type === 'video';
+            if (materialFileLabel) materialFileLabel.hidden = video;
+            if (materialVideoLabel) materialVideoLabel.hidden = !video;
+            if (materialFile) materialFile.required = !video && ['module_pdf', 'material_pdf'].includes(type) && (materialForm?.dataset.editing !== 'true' || materialForm?.dataset.hasFile !== 'true');
+            if (materialVideoInput) materialVideoInput.required = video;
+        };
+        const resetMaterialForm = () => {
+            if (!materialForm) return;
+            materialForm.reset();
+            materialForm.dataset.editing = 'false';
+            materialForm.dataset.hasFile = 'false';
+            materialForm.action = '/dashboard/materials';
+            const method = materialForm.querySelector('[data-material-method-field]');
+            if (method) method.disabled = true;
+            materialFormDialog.querySelector('[data-material-form-title]').textContent = 'Tambah Materi';
+            materialFormDialog.querySelector('[data-material-form-submit]').textContent = 'Simpan Materi';
+            const error = materialForm.querySelector('[data-material-form-error]');
+            if (error) { error.hidden = true; error.textContent = ''; }
+            const help = materialForm.querySelector('[data-material-file-help]');
+            if (help) help.textContent = 'PDF maksimal 20 MB.';
+            syncMaterialAssetInputs();
+        };
+        const openMaterialForm = (card = null) => {
+            if (!materialForm || !materialFormDialog) return;
+            resetMaterialForm();
+            if (card) {
+                materialForm.dataset.editing = 'true';
+                materialForm.dataset.hasFile = card.dataset.hasFile === '1' ? 'true' : 'false';
+                materialForm.action = card.dataset.updateUrl;
+                materialForm.querySelector('[data-material-method-field]').disabled = false;
+                materialForm.querySelector('[data-material-method-field]').value = 'PUT';
+                materialFormDialog.querySelector('[data-material-form-title]').textContent = 'Edit Materi';
+                materialFormDialog.querySelector('[data-material-form-submit]').textContent = 'Simpan Perubahan';
+                materialForm.elements.title.value = card.dataset.title || '';
+                materialForm.elements.subject.value = card.dataset.subject || '';
+                materialForm.elements.grade_level.value = card.dataset.grade || 'SD';
+                materialForm.elements.topic.value = card.dataset.topic || '';
+                materialForm.elements.description.value = card.dataset.description || '';
+                materialForm.elements.material_type.value = card.dataset.type || 'summary';
+                materialForm.elements.video_url.value = card.dataset.videoUrl || '';
+                materialForm.elements.is_published.value = card.dataset.published || '1';
+                if (materialFile && card.dataset.hasFile === '1' && ['module_pdf', 'material_pdf'].includes(card.dataset.type)) {
+                    materialFile.required = false;
+                    materialForm.querySelector('[data-material-file-help]').textContent = 'PDF saat ini tetap digunakan jika tidak memilih file pengganti.';
+                }
+            }
+            syncMaterialAssetInputs();
+            materialFormDialog.showModal();
+        };
+        document.querySelector('[data-material-create-open]')?.addEventListener('click', () => openMaterialForm());
+        materialFormDialog?.querySelectorAll('[data-material-form-close]').forEach((button) => button.addEventListener('click', () => materialFormDialog.close()));
+        materialFormType?.addEventListener('change', syncMaterialAssetInputs);
+        materialForm?.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const submit = materialForm.querySelector('[data-material-form-submit]');
+            const error = materialForm.querySelector('[data-material-form-error]');
+            submit.disabled = true;
+            submit.textContent = 'Menyimpan…';
+            materialFormDialog.setAttribute('aria-busy', 'true');
+            error.hidden = true;
+            try {
+                const response = await fetch(materialForm.action, { method: 'POST', body: new FormData(materialForm), headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': materialForm.querySelector('[name="_token"]')?.value ?? materialCsrf } });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.message || Object.values(result.errors || {}).flat().join(' ') || 'Materi belum dapat disimpan.');
+                materialFormDialog.close();
+                try { sessionStorage.setItem('tutorkita-subject-toast', result.message); } catch { /* Continue without persisted feedback. */ }
+                window.location.href = '/dashboard#materials';
+            } catch (failure) {
+                error.textContent = failure instanceof Error ? failure.message : 'Materi belum dapat disimpan. Periksa kembali isianmu.';
+                error.hidden = false;
+            } finally {
+                materialFormDialog.removeAttribute('aria-busy');
+                submit.disabled = false;
+                submit.textContent = materialForm.dataset.editing === 'true' ? 'Simpan Perubahan' : 'Simpan Materi';
+            }
+        });
+        const beginMaterialDelete = (card) => {
+            if (!card || !materialDeleteDialog) return;
+            pendingMaterialDelete = card;
+            materialDeleteDialog.showModal();
+        };
+        materialDeleteDialog?.querySelector('[data-material-delete-accept]')?.addEventListener('click', async () => {
+            if (!pendingMaterialDelete) return;
+            const card = pendingMaterialDelete;
+            const button = materialDeleteDialog.querySelector('[data-material-delete-accept]');
+            button.disabled = true;
+            button.textContent = 'Mengarsipkan…';
+            materialDeleteDialog.setAttribute('aria-busy', 'true');
+            try {
+                const response = await fetch(card.dataset.deleteUrl, { method: 'DELETE', headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': materialCsrf } });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.message || 'Materi belum dapat diarsipkan.');
+                materialDeleteDialog.close();
+                try { sessionStorage.setItem('tutorkita-subject-toast', result.message); } catch { /* Continue without persisted feedback. */ }
+                window.location.href = '/dashboard#materials';
+            } catch (error) {
+                showToast(error instanceof Error ? error.message : 'Materi belum dapat diarsipkan.');
+            } finally {
+                materialDeleteDialog.removeAttribute('aria-busy');
+                button.disabled = false;
+                button.textContent = 'Arsipkan Materi';
+                pendingMaterialDelete = null;
+            }
+        });
+        materialDeleteDialog?.addEventListener('close', () => { pendingMaterialDelete = null; });
         const filteredMaterials = () => {
             const query = materialSearch.value.trim().toLocaleLowerCase('id');
             const grade = materialGrade.value;
@@ -288,6 +691,23 @@ if (dashboard) {
             document.querySelector('[data-material-more]')?.setAttribute('aria-expanded', 'false');
             materialPage = 1; drawMaterials();
         }));
+        document.querySelectorAll('[data-open-subject-material]').forEach((button) => button.addEventListener('click', (event) => {
+            event.preventDefault();
+            document.querySelector('[data-material-area="materials"]')?.click();
+            materialSubject = button.dataset.openSubjectMaterial;
+            const selectedGrade = button.dataset.openSubjectGrade;
+            if (selectedGrade && materialGrade) materialGrade.value = selectedGrade;
+            const matchingTab = [...document.querySelectorAll('[data-material-subject]')]
+                .find((tab) => tab.dataset.materialSubject === materialSubject);
+            document.querySelectorAll('[data-material-subject]').forEach((tab) => tab.classList.toggle('is-active', tab === matchingTab));
+            document.querySelector('[data-material-more-menu]')?.setAttribute('hidden', '');
+            document.querySelector('[data-material-more]')?.setAttribute('aria-expanded', 'false');
+            materialPage = 1;
+            drawMaterials();
+            const params = new URLSearchParams({ subject: materialSubject });
+            if (selectedGrade) params.set('grade', selectedGrade);
+            history.replaceState({ page: 'materials' }, '', `${location.pathname}?${params.toString()}#materials`);
+        }));
         document.querySelector('[data-material-more]')?.addEventListener('click', (event) => {
             const menu = document.querySelector('[data-material-more-menu]');
             const isOpen = menu.hidden;
@@ -319,9 +739,25 @@ if (dashboard) {
                 if (!material.file_url && !material.video_url) { const missing = document.createElement('p'); missing.textContent = 'File atau tautan materi belum tersedia.'; actions.append(missing); }
                 const done = document.createElement('button'); done.type = 'button'; done.className = 'button button-outline'; done.textContent = material.completed ? 'Materi sudah selesai' : 'Tandai selesai'; done.disabled = material.completed;
                 done.addEventListener('click', async () => {
-                    const response = await fetch(`/dashboard/materials/${id}/complete`, { method: 'POST', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': materialCsrf } });
-                    if (!response.ok) { showToast('Progres belum dapat disimpan.'); return; }
-                    material.completed = true; done.textContent = 'Materi sudah selesai'; done.disabled = true; document.querySelector(`[data-material-card][data-id="${id}"]`)?.classList.add('is-completed'); updateMaterialProgress(); showToast('Materi ditandai selesai.');
+                    done.disabled = true;
+                    materialDialog.setAttribute('aria-busy', 'true');
+                    done.textContent = 'Menyimpan…';
+                    try {
+                        const response = await fetch(`/dashboard/materials/${id}/complete`, { method: 'POST', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': materialCsrf, 'X-Requested-With': 'XMLHttpRequest' } });
+                        const result = await response.json().catch(() => ({}));
+                        if (!response.ok) throw new Error(result.message || 'Progres belum dapat disimpan. Coba lagi.');
+                        material.completed = true;
+                        done.textContent = 'Materi sudah selesai';
+                        document.querySelector(`[data-material-card][data-id="${id}"]`)?.classList.add('is-completed');
+                        updateMaterialProgress();
+                        showToast(result.message || 'Materi ditandai selesai.');
+                    } catch (error) {
+                        done.disabled = false;
+                        done.textContent = 'Tandai selesai';
+                        showToast(error instanceof Error ? error.message : 'Progres belum dapat disimpan. Coba lagi.');
+                    } finally {
+                        materialDialog.removeAttribute('aria-busy');
+                    }
                 });
                 actions.append(done); materialDetail.append(subject, title, description, topic, actions);
             } catch (error) { materialDetail.textContent = error.message; }
@@ -337,8 +773,8 @@ if (dashboard) {
             const empty = document.querySelector('[data-material-progress-empty]'); if (empty) empty.hidden = completed > 0;
         };
         materialCards.forEach((card) => {
-            card.addEventListener('click', (event) => { if (event.target.closest('[data-material-bookmark]')) return; openMaterial(card.dataset.id); });
-            card.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openMaterial(card.dataset.id); } });
+            card.addEventListener('click', (event) => { if (event.target.closest('button, a, input, select, [data-material-management-actions]')) return; openMaterial(card.dataset.id); });
+            card.addEventListener('keydown', (event) => { if (event.target !== card) return; if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openMaterial(card.dataset.id); } });
             card.querySelector('[data-material-bookmark]')?.addEventListener('click', async (event) => {
                 event.stopPropagation(); const button = event.currentTarget; button.disabled = true;
                 try {
@@ -348,6 +784,16 @@ if (dashboard) {
                 } catch (error) { showToast(error.message); } finally { button.disabled = false; }
             });
         });
+        materialGrid.addEventListener('click', (event) => {
+            const edit = event.target.closest('[data-material-edit]');
+            const remove = event.target.closest('[data-material-delete]');
+            if (edit) { event.preventDefault(); openMaterialForm(edit.closest('[data-material-card]')); }
+            if (remove) { event.preventDefault(); beginMaterialDelete(remove.closest('[data-material-card]')); }
+        });
+        if (materialSubject !== 'all') {
+            document.querySelectorAll('[data-material-subject]').forEach((tab) => tab.classList.toggle('is-active', tab.dataset.materialSubject === materialSubject));
+            drawMaterials();
+        }
         document.querySelectorAll('[data-material-open]').forEach((button) => button.addEventListener('click', () => openMaterial(button.dataset.materialOpen)));
         document.querySelector('[data-material-close]')?.addEventListener('click', () => materialDialog.close());
         document.querySelector('[data-material-detail-progress]')?.addEventListener('click', () => document.querySelector('.materials-progress-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));

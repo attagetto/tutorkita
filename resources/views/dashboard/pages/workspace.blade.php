@@ -1,6 +1,3 @@
-@php
-    $workspaceSubjects = $subjects ?? \App\Support\SubjectsMockData::make();
-@endphp
 <section class="dashboard-page spa-page catalog-page" data-spa-page="tutors" hidden>
     <div class="catalog-heading"><h1>Katalog <em>Tutor</em></h1><p>Temukan tutor relawan yang sesuai dengan kebutuhan belajar kamu.</p></div>
     <form class="catalog-search-row" data-catalog-search-form>
@@ -92,11 +89,17 @@
         $materialSubjects = $materials->pluck('subject')->unique()->values();
         $mainMaterialSubjects = ['Matematika', 'IPA', 'Bahasa Indonesia', 'Bahasa Inggris'];
         $extraMaterialSubjects = $materialSubjects->reject(fn ($subject) => in_array($subject, $mainMaterialSubjects, true))->values();
+        $showSubjectManager = request()->query('materials') === 'subjects';
     @endphp
-    <div class="materials-heading"><div><h1>Materi <em>Pembelajaran</em></h1><p>Akses berbagai materi belajar dari tutor, mulai dari rangkuman, modul, video, hingga latihan soal.</p></div></div>
+    <div class="materials-heading"><div><h1>Materi <em>Pembelajaran</em></h1><p>Akses berbagai materi belajar dari tutor, mulai dari rangkuman, modul, video, hingga latihan soal.</p></div>@if ((auth()->user()->role ?? null) === 'tutor')<button type="button" class="button button-primary" data-material-create-open><x-icon name="plus"/> Tambah Materi</button>@endif</div>
     <div class="materials-layout">
         <div class="materials-primary">
             <section class="materials-hero" aria-label="Belajar lebih mudah"><div class="materials-hero-copy"><h2>Belajar Lebih Mudah<br> dengan Materi Lengkap</h2><p>Temukan materi sesuai mata pelajaran dan jenjang kelasmu, lalu mulai belajar sekarang!</p></div><div class="materials-hero-illustration" aria-hidden="true"><span class="hero-sun"></span><div class="hero-book hero-book-one"></div><div class="hero-book hero-book-two"></div><div class="hero-cap"><i></i></div><div class="hero-screen"><span>▶</span></div></div></section>
+            <nav class="materials-workspace-tabs" aria-label="Ruang materi dan mata pelajaran">
+                <button type="button" data-material-area="materials" class="{{ $showSubjectManager ? '' : 'is-active' }}" aria-pressed="{{ $showSubjectManager ? 'false' : 'true' }}"><x-icon name="book-open"/>Materi Pembelajaran</button>
+                <button type="button" data-material-area="subjects" class="{{ $showSubjectManager ? 'is-active' : '' }}" aria-pressed="{{ $showSubjectManager ? 'true' : 'false' }}"><x-icon name="grid"/>Mata Pelajaran <span data-subject-selected-count>{{ $student_subject_count }}</span></button>
+            </nav>
+            <div data-materials-panel @if ($showSubjectManager) hidden @endif>
             <nav class="materials-subject-nav" aria-label="Filter mata pelajaran" data-material-subjects>
                 <button class="is-active" type="button" data-material-subject="all"><x-icon name="grid"/>Semua Materi</button>
                 <button type="button" data-material-subject="Matematika"><x-icon name="trend"/>Matematika</button>
@@ -108,17 +111,58 @@
             <div class="materials-controls"><label class="materials-search"><x-icon name="search"/><span class="sr-only">Cari materi</span><input type="search" placeholder="Cari materi, judul, atau tutor..." data-material-search></label><label class="materials-select"><x-icon name="graduation-cap"/><span class="sr-only">Jenjang</span><select data-material-grade><option value="all">Semua Jenjang</option><option>SD</option><option>SMP</option><option>SMA/SMK</option><option>Perguruan Tinggi</option></select><x-icon name="chevron-down"/></label><label class="materials-select materials-sort"><x-icon name="filter"/><span class="sr-only">Urutan</span><select data-material-sort><option value="newest">Terbaru</option><option value="popular">Terpopuler</option></select><x-icon name="chevron-down"/></label></div>
             <div class="materials-list-heading"><h2>Daftar Materi Pembelajaran <span data-material-count>{{ $materials->count() }}</span></h2><span data-material-result-label></span></div>
             <div class="materials-card-grid" data-material-grid>@forelse ($materials as $material)
-                <article class="learning-material-card {{ $material->is_completed ? 'is-completed' : '' }}" data-material-card data-id="{{ $material->id }}" data-subject="{{ $material->subject }}" data-grade="{{ $material->grade_level }}" data-title="{{ $material->title }}" data-search="{{ \Illuminate\Support\Str::lower($material->title.' '.$material->tutor_name.' '.$material->subject.' '.$material->topic.' '.$material->grade_level) }}" data-views="{{ $material->view_count }}" data-date="{{ $material->published_at?->timestamp ?? 0 }}" tabindex="0" role="button" aria-label="Lihat detail {{ $material->title }}">
+                <article class="learning-material-card {{ $material->is_completed ? 'is-completed' : '' }}" data-material-card data-id="{{ $material->id }}" data-subject="{{ $material->subject }}" data-grade="{{ $material->grade_level }}" data-title="{{ $material->title }}" data-topic="{{ $material->topic }}" data-description="{{ $material->description }}" data-type="{{ $material->material_type }}" data-video-url="{{ $material->video_url }}" data-has-file="{{ $material->file_path ? '1' : '0' }}" data-published="{{ $material->is_published ? '1' : '0' }}" data-update-url="{{ route('dashboard.materials.update', $material) }}" data-delete-url="{{ route('dashboard.materials.destroy', $material) }}" data-search="{{ \Illuminate\Support\Str::lower($material->title.' '.$material->tutor_name.' '.$material->subject.' '.$material->topic.' '.$material->grade_level) }}" data-views="{{ $material->view_count }}" data-date="{{ $material->published_at?->timestamp ?? 0 }}" tabindex="0" role="button" aria-label="Lihat detail {{ $material->title }}">
                     <div class="learning-material-thumb"><span class="learning-material-subject">{{ $material->subject }}</span><x-material-art :kind="$material->illustration"/></div>
                     @php
                         $materialTypeLabel = ['module_pdf' => 'Modul (PDF)', 'material_pdf' => 'Materi (PDF)', 'video' => 'Video', 'exercise' => 'Latihan Soal', 'summary' => 'Rangkuman'][$material->material_type] ?? $material->material_type;
                     @endphp
                     <div class="learning-material-info"><h3>{{ $material->title }}</h3><p class="learning-material-author"><x-icon name="user"/>Oleh {{ $material->tutor_name }}</p><div class="learning-material-meta"><span><x-icon name="{{ $material->material_type === 'video' ? 'play' : 'document' }}"/>{{ $materialTypeLabel }}@if ($material->page_count) · {{ $material->page_count }} halaman @elseif ($material->duration_seconds) · {{ gmdate('i:s', $material->duration_seconds) }} @endif</span><small>{{ number_format($material->view_count) }} kali dilihat</small></div></div>
                     <button class="learning-material-bookmark {{ $material->is_bookmarked ? 'is-saved' : '' }}" type="button" data-material-bookmark="{{ $material->id }}" data-url="{{ route('dashboard.materials.bookmark', $material) }}" aria-label="{{ $material->is_bookmarked ? 'Hapus bookmark' : 'Simpan materi' }}" aria-pressed="{{ $material->is_bookmarked ? 'true' : 'false' }}"><x-icon name="bookmark"/></button>
+                    @if ((auth()->user()->role ?? null) === 'tutor' && (string) $material->created_by === (string) auth()->user()->getAuthIdentifier())
+                        <div class="learning-material-management-actions" data-material-management-actions><button type="button" data-material-edit="{{ $material->id }}">Edit</button><button type="button" data-material-delete="{{ $material->id }}">Hapus</button></div>
+                    @endif
                 </article>
             @empty <div class="materials-empty" data-material-empty>Belum ada materi yang tersedia.</div> @endforelse</div>
             <div class="materials-empty" data-material-filter-empty hidden>Materi tidak ditemukan. Coba ubah kata pencarian atau filternya.</div>
             <nav class="materials-pagination" data-material-pagination aria-label="Halaman materi"></nav>
+            </div>
+            <section class="integrated-subjects-panel" data-integrated-subjects data-search-url="{{ route('subjects.catalog') }}" @if (! $showSubjectManager) hidden @endif aria-label="Kelola mata pelajaran">
+                <div class="integrated-subjects-heading"><div><span class="section-kicker">PILIH YANG INGIN KAMU PELAJARI</span><h2>Mata <em>Pelajaran</em></h2><p>Pilih pelajaran untuk mengatur materi yang ingin kamu pelajari.</p></div><strong data-subject-result-count>{{ $subject_catalog->count() }} pelajaran tersedia</strong></div>
+                <nav class="integrated-subject-tabs" aria-label="Katalog mata pelajaran" role="tablist">
+                    <button type="button" class="is-active" role="tab" aria-selected="true" data-subject-tab="all">Semua Mata Pelajaran</button>
+                    <button type="button" role="tab" aria-selected="false" data-subject-tab="mine">Mata Pelajaranku <span data-subject-tab-count>{{ $student_subject_count }}</span></button>
+                </nav>
+                <div class="integrated-subject-filters">
+                    <label class="integrated-subject-search"><x-icon name="search"/><span class="sr-only">Cari mata pelajaran</span><input type="search" placeholder="Cari mata pelajaran..." data-subject-search></label>
+                    <label class="integrated-subject-select"><x-icon name="graduation-cap"/><span class="sr-only">Filter jenjang pendidikan</span><select data-subject-level-filter><option value="all">Semua Jenjang</option>@foreach ($subject_grade_levels as $gradeLevel)<option value="{{ $gradeLevel->name }}">{{ $gradeLevel->name }}</option>@endforeach</select><x-icon name="chevron-down"/></label>
+                    <label class="integrated-subject-select"><x-icon name="filter"/><span class="sr-only">Filter kategori</span><select data-subject-category-filter><option value="all">Semua Kategori</option>@foreach ($subject_catalog->pluck('category')->unique()->sort() as $category)<option value="{{ $category }}">{{ $category }}</option>@endforeach</select><x-icon name="chevron-down"/></label>
+                </div>
+                <div class="integrated-subject-grid" data-subject-grid data-subject-management>
+                    @foreach ($subject_catalog as $subjectIndex => $subject)
+                        @php
+                            $isSubjectSelected = in_array($subject->id, $student_subject_ids, true);
+                            $selectedGradeLevelId = $student_subject_levels[$subject->id] ?? null;
+                        @endphp
+                        <article class="integrated-subject-card" data-subject-card data-subject-id="{{ $subject->id }}" data-update-url="{{ route('subjects.update', $subject) }}" data-selected="{{ $isSubjectSelected ? '1' : '0' }}" data-selected-level="{{ $selectedGradeLevelId }}" data-name="{{ \Illuminate\Support\Str::lower($subject->name) }}" data-search="{{ \Illuminate\Support\Str::lower($subject->name.' '.$subject->description.' '.$subject->category) }}" data-category="{{ \Illuminate\Support\Str::lower($subject->category) }}" data-levels="{{ $subject->gradeLevels->pluck('name')->map(fn ($level) => \Illuminate\Support\Str::lower($level))->join('|') }}" data-level-map="{{ $subject->gradeLevels->map(fn ($level) => $level->id.':'.$level->name)->join('|') }}" style="--subject-delay: {{ ($subjectIndex % 9) * 35 }}ms">
+                            <div class="integrated-subject-card-head"><span class="integrated-subject-icon subject-icon-{{ $subject->tone }}"><x-icon :name="$subject->icon"/></span><span class="integrated-subject-category">{{ $subject->category }}</span></div>
+                            <h3>{{ $subject->name }}</h3><p class="integrated-subject-description">{{ $subject->description }}</p>
+                            <div class="integrated-subject-levels">@forelse ($subject->gradeLevels as $gradeLevel)<span>{{ $gradeLevel->name }}</span>@empty<span>Jenjang belum diatur</span>@endforelse</div>
+                            <div class="integrated-subject-meta"><span><x-icon name="document"/>{{ $subject->materials_count }} materi</span><span class="integrated-subject-status" data-subject-status>{{ $isSubjectSelected ? 'Dipilih · '.($subject_grade_levels->firstWhere('id', $selectedGradeLevelId)?->name ?? 'Pilih jenjang') : 'Belum ditambahkan' }}</span></div>
+                            <div class="integrated-subject-actions">
+                                <a href="{{ route('dashboard', ['subject' => $subject->name, 'grade' => $subject_grade_levels->firstWhere('id', $selectedGradeLevelId)?->name]) }}#materials" class="button button-outline integrated-subject-open" data-open-subject-material="{{ $subject->name }}" data-open-subject-grade="{{ $subject_grade_levels->firstWhere('id', $selectedGradeLevelId)?->name }}">Lihat Materi <x-icon name="arrow-right"/></a>
+                                @if ($isSubjectSelected)
+                                    <button type="button" class="integrated-subject-edit" data-subject-edit-trigger data-subject-name="{{ $subject->name }}" aria-label="Edit {{ $subject->name }} dan jenjang"><x-icon name="edit"/> Edit</button>
+                                    <form action="{{ route('subjects.destroy', $subject) }}" method="post" data-subject-remove-form>@csrf @method('DELETE')<button class="integrated-subject-remove" type="submit" aria-label="Hapus {{ $subject->name }} dari Mata Pelajaranku" data-subject-remove-trigger data-subject-name="{{ $subject->name }}"><x-icon name="trash"/></button></form>
+                                @else
+                                    <form action="{{ route('subjects.select', $subject) }}" method="post" data-subject-add-form>@csrf<label class="sr-only" for="subject-level-{{ $subject->id }}">Jenjang untuk {{ $subject->name }}</label><select id="subject-level-{{ $subject->id }}" name="grade_level_id" required aria-label="Pilih jenjang {{ $subject->name }}"><option value="">Pilih jenjang</option>@foreach ($subject->gradeLevels as $gradeLevel)<option value="{{ $gradeLevel->id }}">{{ $gradeLevel->name }}</option>@endforeach</select><button class="integrated-subject-add" type="submit"><x-icon name="plus"/> Tambahkan</button></form>
+                                @endif
+                            </div>
+                        </article>
+                    @endforeach
+                    <div class="integrated-subject-empty" data-subject-empty hidden><x-icon name="search"/><strong>Tidak ada mata pelajaran yang cocok</strong><span>Coba ubah kata pencarian atau filter yang dipilih.</span></div>
+                </div>
+                <p class="integrated-subject-no-selection" data-subject-no-selection hidden>Belum ada mata pelajaran di daftar belajarmu. Tambahkan dari katalog untuk mulai belajar.</p>
+            </section>
         </div>
         <aside class="materials-sidebar">
             <section class="materials-progress-card"><div class="materials-side-heading"><h2>Progress Belajar</h2><button type="button" data-material-detail-progress>Lihat Detail <x-icon name="arrow-right"/></button></div><div class="materials-progress-content"><div class="materials-progress-ring" data-progress-ring style="--progress:{{ $material_progress_percent ?? 0 }}%"><strong>{{ $material_progress_percent ?? 0 }}%</strong></div><div class="materials-progress-summary"><p>{{ $completed_material_count ?? 0 }} dari {{ $material_count ?? 0 }} materi selesai</p><div class="materials-progress-track"><span data-progress-bar style="width:{{ $material_progress_percent ?? 0 }}%"></span></div></div></div><p class="materials-progress-empty" data-material-progress-empty @if (($completed_material_count ?? 0) > 0) hidden @endif>Mulai pelajari materi dan tandai selesai untuk melihat progresmu.</p></section>
@@ -127,7 +171,81 @@
         </aside>
     </div>
     <dialog class="material-detail-dialog" data-material-dialog aria-labelledby="material-detail-title"><button type="button" class="material-dialog-close" data-material-close aria-label="Tutup">×</button><div data-material-detail><p>Memuat detail materi…</p></div></dialog>
+    @if (session('status'))<span hidden data-toast-on-load>{{ session('status') }}</span>@endif
 </section>
+
+<dialog class="subject-confirm-dialog" data-subject-confirm-dialog aria-labelledby="subject-confirm-title"><form method="dialog" class="subject-confirm-dialog-card"><span class="subject-confirm-icon"><x-icon name="trash"/></span><h2 id="subject-confirm-title">Hapus dari Mata Pelajaranku?</h2><p>Apakah kamu yakin ingin menghapus <strong data-subject-confirm-name></strong> dari daftar mata pelajaranmu? Materi pembelajaran akan tetap tersedia.</p><div class="subject-confirm-actions"><button class="button button-outline" value="cancel" data-subject-confirm-cancel>Batal</button><button class="button button-danger" type="button" data-subject-confirm-accept>Hapus dari Daftar</button></div></form></dialog>
+<dialog class="subject-confirm-dialog" data-subject-edit-dialog aria-labelledby="subject-edit-title"><form class="subject-confirm-dialog-card" data-subject-edit-form><span class="subject-confirm-icon"><x-icon name="edit"/></span><h2 id="subject-edit-title">Ubah mata pelajaran</h2><label>Mata Pelajaran<select name="subject_id" data-subject-edit-subject required>@foreach ($subject_catalog as $subject)<option value="{{ $subject->id }}" data-level-map="{{ $subject->gradeLevels->map(fn ($level) => $level->id.':'.$level->name)->join('|') }}">{{ $subject->name }}</option>@endforeach</select></label><label>Jenjang Pendidikan<select name="grade_level_id" data-subject-edit-level required></select></label><div class="subject-confirm-actions"><button type="button" class="button button-outline" data-subject-edit-cancel>Batal</button><button type="submit" class="button button-primary">Simpan Perubahan</button></div></form></dialog>
+@if ((auth()->user()->role ?? null) === 'tutor')
+    <dialog class="material-management-dialog" data-material-form-dialog aria-labelledby="material-form-title"><button type="button" class="material-management-close" data-material-form-close aria-label="Tutup">×</button><form data-material-form action="{{ route('dashboard.materials.store') }}" method="post" enctype="multipart/form-data">@csrf<input type="hidden" name="_method" data-material-method-field disabled><h2 id="material-form-title" data-material-form-title>Tambah Materi</h2><p class="material-management-lead">Materi hanya dapat diubah oleh tutor pembuatnya.</p><label>Judul Materi<input name="title" maxlength="180" required></label><div class="material-management-two"><label>Mata Pelajaran<select name="subject" required>@foreach ($subject_catalog as $subject)<option value="{{ $subject->name }}">{{ $subject->name }}</option>@endforeach</select></label><label>Jenjang<select name="grade_level" required><option>SD</option><option>SMP</option><option>SMA/SMK</option><option>Perguruan Tinggi</option></select></label></div><div class="material-management-two"><label>Jenis Materi<select name="material_type" data-material-form-type required><option value="module_pdf">Modul (PDF)</option><option value="material_pdf">Materi (PDF)</option><option value="video">Video</option><option value="exercise">Latihan Soal</option><option value="summary">Rangkuman</option></select></label><label>Topik<input name="topic" maxlength="120"></label></div><label>Deskripsi<textarea name="description" rows="4" maxlength="5000" required></textarea></label><label data-material-file-label>File PDF <input type="file" name="file" accept=".pdf,application/pdf" data-material-file><small data-material-file-help>PDF maksimal 20 MB.</small></label><label data-material-video-label hidden>Tautan Video<input type="url" name="video_url" placeholder="https://..." maxlength="2048"></label><label>Status Publikasi<select name="is_published"><option value="1">Terbitkan</option><option value="0">Simpan sebagai draf</option></select></label><p class="material-management-error" data-material-form-error role="alert" hidden></p><div class="material-management-actions"><button type="button" class="button button-outline" data-material-form-close>Batal</button><button type="submit" class="button button-primary" data-material-form-submit>Simpan Materi</button></div></form></dialog>
+    <dialog class="subject-confirm-dialog" data-material-delete-dialog aria-labelledby="material-delete-title"><form method="dialog" class="subject-confirm-dialog-card"><span class="subject-confirm-icon"><x-icon name="trash"/></span><h2 id="material-delete-title">Arsipkan materi?</h2><p>Materi ini tidak akan muncul lagi di katalog. Bookmark dan progress belajar yang sudah tercatat tetap disimpan.</p><div class="subject-confirm-actions"><button class="button button-outline" value="cancel">Batal</button><button class="button button-danger" type="button" data-material-delete-accept>Arsipkan Materi</button></div></form></dialog>
+@endif
+
+<dialog class="role-dialog" data-profile-dialog aria-labelledby="role-profile-title">
+    <button type="button" class="role-dialog-close" aria-label="Tutup" data-role-dialog-close>×</button>
+    <span class="section-kicker">AKUN TUTORKITA · {{ strtoupper($user['role_label']) }}</span><h2 id="role-profile-title">Profil Saya</h2>
+    <form method="post" action="{{ route('dashboard.profile.update') }}" enctype="multipart/form-data" class="role-form">@csrf
+        <label>Nama lengkap<input name="name" value="{{ $user['full_name'] }}" maxlength="120" required></label>
+        <label>Foto profil <input type="file" name="avatar" accept="image/jpeg,image/png,image/webp"><small>JPG, PNG, atau WebP · maks. 2 MB.</small></label>
+        @if ($user['role'] === 'tutor' && $tutor_profile)
+            <div class="role-form-divider">Profil tutor</div>
+            <label>Pendidikan terakhir<input name="education_level" value="{{ $tutor_profile->education_level }}" maxlength="80" required></label>
+            <label>Universitas / institusi<input name="institution" value="{{ $tutor_profile->institution }}" maxlength="180" required></label>
+            <label>Program studi / jurusan<input name="program" value="{{ $tutor_profile->program }}" maxlength="180" required></label>
+            <label>Tahun kelulusan<input type="number" name="graduation_year" min="1950" max="{{ now()->year + 8 }}" value="{{ $tutor_profile->graduation_year }}" required></label>
+            <label>Biografi singkat<textarea name="bio" rows="3" maxlength="2000" required>{{ $tutor_profile->bio }}</textarea></label>
+            <label>Pengalaman mengajar<textarea name="experience" rows="3" maxlength="4000">{{ $tutor_profile->experience }}</textarea></label>
+            <label>Informasi pendukung<textarea name="additional_info" rows="2" maxlength="2000">{{ $tutor_profile->additional_info }}</textarea></label>
+            <input type="hidden" name="subject_ids_present" value="1"><fieldset><legend>Mata pelajaran yang diajarkan</legend><div class="role-subject-grid">@foreach ($subject_catalog as $subject)<label><input type="checkbox" name="subject_ids[]" value="{{ $subject->id }}" @checked($tutor_profile->subjects->contains('id', $subject->id))>{{ $subject->name }}</label>@endforeach</div></fieldset>
+            <input type="hidden" name="availability_present" value="1"><fieldset><legend>Ketersediaan tutor</legend><div class="role-availability-grid">@foreach (['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'] as $day)<label><input type="checkbox" name="availability[]" value="{{ $day }} · 15.00–18.00" @checked(in_array($day.' · 15.00–18.00', $tutor_profile->availability ?? [], true))>{{ $day }} sore</label>@endforeach</div><small>Pilihan awal tersedia pukul 15.00–18.00; jadwal rinci dapat disesuaikan pada pembaruan berikutnya.</small></fieldset>
+        @endif
+        <div class="role-dialog-actions"><button type="button" class="button button-outline" data-role-dialog-close>Batal</button><button type="submit" class="button button-primary">Simpan Profil</button></div>
+    </form>
+</dialog>
+
+@if ($user['role'] === 'student')
+<dialog class="role-dialog" data-tutor-application-dialog aria-labelledby="tutor-application-title">
+    <button type="button" class="role-dialog-close" aria-label="Tutup" data-role-dialog-close>×</button>
+    <span class="section-kicker">BERBAGI ILMU BERSAMA TUTORKITA</span><h2 id="tutor-application-title">Ajukan Menjadi Tutor</h2>
+    @if ($tutor_application?->status === 'pending')
+        <p class="role-state is-pending">Pengajuanmu sedang diperiksa admin. Role akun tetap Student sampai disetujui.</p>
+    @elseif ($tutor_application?->status === 'approved')
+        <p class="role-state is-approved">Pengajuan sudah disetujui. Akunmu sekarang berstatus Tutor.</p>
+    @else
+        @if ($tutor_application?->status === 'rejected')<p class="role-state is-rejected"><strong>Pengajuan sebelumnya ditolak.</strong> {{ $tutor_application->rejection_reason }}</p>@endif
+        <p class="role-dialog-lead">Lengkapi data pendidikan dan pengalaman agar admin dapat meninjau pengajuanmu.</p>
+        <form method="post" action="{{ route('dashboard.tutor-applications.store') }}" enctype="multipart/form-data" class="role-form" data-tutor-application-form>@csrf
+            <label>Nama lengkap<input name="applicant_name" value="{{ $tutor_application?->applicant_name ?? $user['full_name'] }}" maxlength="120" required></label>
+            <label>Foto profil calon tutor <input type="file" name="avatar" accept="image/jpeg,image/png,image/webp" @required(! $user['avatar_url'])><small>JPG, PNG, atau WebP · maks. 2 MB. Jika foto profil sudah tersedia, foto baru bersifat opsional.</small></label><img class="role-photo-preview" data-application-photo-preview @if (! $user['avatar_url']) hidden @else src="{{ $user['avatar_url'] }}" alt="Pratinjau foto profil" @endif>
+            <div class="role-form-two"><label>Pendidikan terakhir<select name="education_level" required><option value="">Pilih pendidikan</option>@foreach (['SMA/SMK','Diploma','S1','S2','S3'] as $level)<option value="{{ $level }}" @selected($tutor_application?->education_level === $level)>{{ $level }}</option>@endforeach</select></label><label>Tahun kelulusan<input type="number" name="graduation_year" min="1950" max="{{ now()->year + 8 }}" value="{{ $tutor_application?->graduation_year }}" required></label></div>
+            <label>Universitas / institusi<input name="institution" value="{{ $tutor_application?->institution }}" maxlength="180" required></label>
+            <label>Jurusan / program studi<input name="program" value="{{ $tutor_application?->program }}" maxlength="180" required></label>
+            <fieldset><legend>Mata pelajaran yang dikuasai <small>(pilih minimal satu)</small></legend><div class="role-subject-grid">@foreach ($subject_catalog as $subject)<label><input type="checkbox" name="subject_ids[]" value="{{ $subject->id }}" @checked($tutor_application?->subjects->contains('id', $subject->id))>{{ $subject->name }}</label>@endforeach</div></fieldset>
+            <label>Biografi singkat<textarea name="bio" rows="4" minlength="20" maxlength="2000" required>{{ $tutor_application?->bio }}</textarea></label>
+            <label>Pengalaman mengajar (opsional)<textarea name="experience" rows="3" maxlength="4000">{{ $tutor_application?->experience }}</textarea></label>
+            <label>Informasi pendukung<textarea name="additional_info" rows="2" maxlength="2000">{{ $tutor_application?->additional_info }}</textarea></label>
+            <section class="role-application-preview"><strong>Pratinjau data</strong><span data-application-preview-name>{{ $tutor_application?->applicant_name ?? $user['full_name'] }}</span><small data-application-preview-education>{{ $tutor_application?->education_level }} · {{ $tutor_application?->institution }}</small><small data-application-preview-subject>Subjek akan ditampilkan sesuai pilihan di atas.</small></section>
+            <p class="role-form-error" data-role-form-error @if (! $errors->any()) hidden @endif>{{ $errors->first() }}</p>
+            <div class="role-dialog-actions"><button type="button" class="button button-outline" data-role-dialog-close>Batal</button><button type="submit" class="button button-primary" data-application-submit>Kirim Pengajuan</button></div>
+        </form>
+    @endif
+</dialog>
+@endif
+
+@if ($user['role'] === 'admin')
+<dialog class="role-dialog role-admin-dialog" data-admin-verification-dialog aria-labelledby="admin-verification-title">
+    <button type="button" class="role-dialog-close" aria-label="Tutup" data-role-dialog-close>×</button><span class="section-kicker">PANEL ADMIN</span><h2 id="admin-verification-title">Verifikasi Tutor <span class="profile-menu-count">{{ $pending_tutor_application_count }}</span></h2>
+    @forelse ($pending_tutor_applications as $application)
+        <article class="tutor-review-card"><div class="tutor-review-head"><img src="{{ $application->candidate_photo_url }}" alt="Foto {{ $application->candidate_name }}"><div><h3>{{ $application->candidate_name }}</h3><p>{{ $application->candidate_contact }}</p><small>Diajukan {{ $application->submitted_at?->locale('id')->isoFormat('D MMMM YYYY, HH:mm') }}</small></div><span class="role-state is-pending">Pending</span></div>
+            <dl><dt>Pendidikan</dt><dd>{{ $application->education_level }} · {{ $application->institution }}</dd><dt>Program studi</dt><dd>{{ $application->program }} · {{ $application->graduation_year }}</dd><dt>Mata pelajaran</dt><dd>{{ $application->subjects->pluck('name')->join(', ') }}</dd><dt>Biografi</dt><dd>{{ $application->bio }}</dd><dt>Pengalaman</dt><dd>{{ $application->experience ?: 'Belum dicantumkan' }}</dd>@if ($application->additional_info)<dt>Informasi pendukung</dt><dd>{{ $application->additional_info }}</dd>@endif</dl>
+            <div class="tutor-review-actions"><form method="post" action="{{ route('dashboard.admin.tutor-applications.decide', $application) }}">@csrf<input type="hidden" name="decision" value="approve"><button class="button button-primary" type="submit">Setujui</button></form><form method="post" action="{{ route('dashboard.admin.tutor-applications.decide', $application) }}">@csrf<input type="hidden" name="decision" value="reject"><label class="sr-only" for="reject-reason-{{ $application->id }}">Alasan penolakan</label><input id="reject-reason-{{ $application->id }}" name="reason" placeholder="Alasan penolakan (wajib)" minlength="5" maxlength="2000" required><button class="button button-outline" type="submit">Tolak</button></form></div>
+        </article>
+    @empty
+        <p class="role-state">Belum ada pengajuan tutor yang menunggu pemeriksaan.</p>
+    @endforelse
+</dialog>
+<dialog class="role-dialog" data-admin-users-dialog aria-labelledby="admin-users-title"><button type="button" class="role-dialog-close" aria-label="Tutup" data-role-dialog-close>×</button><span class="section-kicker">PANEL ADMIN</span><h2 id="admin-users-title">Pengelolaan Pengguna</h2><p class="role-dialog-lead">Daftar akun aplikasi dan role aktifnya.</p><div class="admin-user-list">@foreach ($admin_user_rows as $adminUser)<div><strong>{{ $adminUser['name'] }}</strong><span>{{ $adminUser['contact'] }}</span><em>{{ ucfirst($adminUser['role']) }}</em></div>@endforeach</div><small>Promosi admin hanya tersedia lewat perintah Artisan interaktif yang meminta konfirmasi.</small></dialog>
+@endif
 
 <section class="dashboard-page spa-page" data-spa-page="assignments" hidden>
     @php

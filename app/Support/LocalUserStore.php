@@ -66,6 +66,33 @@ class LocalUserStore
         });
     }
 
+    /** @return list<array<string, mixed>> */
+    public function all(): array
+    {
+        return $this->withLockedRecords(LOCK_SH, fn ($handle, array $records): array => array_values($records));
+    }
+
+    /** Update only the explicitly supported public profile fields. */
+    public function updateProfile(string|int $id, array $attributes): ?array
+    {
+        $allowed = array_intersect_key($attributes, array_flip(['name', 'avatar_path']));
+
+        return $this->withLockedRecords(LOCK_EX, function ($handle, array $records) use ($id, $allowed): ?array {
+            foreach ($records as &$record) {
+                if ((string) ($record['id'] ?? '') !== (string) $id) continue;
+                foreach ($allowed as $key => $value) $record[$key] = $value;
+                $this->writeRecords($handle, $records);
+                $updated = $record;
+                unset($record);
+
+                return $updated;
+            }
+            unset($record);
+
+            return null;
+        });
+    }
+
     /** @return array<string, mixed>|null Returns null if the contact is already registered. */
     public function create(string $name, string $contact, string $password): ?array
     {

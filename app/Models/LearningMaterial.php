@@ -4,13 +4,16 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LearningMaterial extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'slug', 'title', 'subject', 'topic', 'grade_level', 'tutor_name', 'material_type',
         'description', 'illustration', 'file_path', 'video_url', 'page_count', 'duration_seconds',
-        'view_count', 'is_published', 'published_at',
+        'view_count', 'is_published', 'published_at', 'created_by',
     ];
 
     protected function casts(): array
@@ -18,6 +21,7 @@ class LearningMaterial extends Model
         return [
             'is_published' => 'boolean',
             'published_at' => 'immutable_datetime',
+            'deleted_at' => 'immutable_datetime',
             'page_count' => 'integer',
             'duration_seconds' => 'integer',
             'view_count' => 'integer',

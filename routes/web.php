@@ -9,6 +9,8 @@ use App\Http\Controllers\LearningMaterialController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\SubjectsController;
+use App\Http\Controllers\TutorApplicationController;
 
 Route::get('/', LandingController::class)->name('home');
 
@@ -27,6 +29,9 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/dashboard/sessions', [LearningSessionController::class, 'store'])->name('dashboard.sessions.store');
     Route::post('/dashboard/sessions/{learningSession}/cancel', [LearningSessionController::class, 'cancel'])->name('dashboard.sessions.cancel');
     Route::get('/dashboard/materials/{learningMaterial}', [LearningMaterialController::class, 'show'])->name('dashboard.materials.show');
+    Route::post('/dashboard/materials', [LearningMaterialController::class, 'store'])->name('dashboard.materials.store');
+    Route::put('/dashboard/materials/{learningMaterial}', [LearningMaterialController::class, 'update'])->name('dashboard.materials.update');
+    Route::delete('/dashboard/materials/{learningMaterial}', [LearningMaterialController::class, 'destroy'])->name('dashboard.materials.destroy');
     Route::post('/dashboard/materials/{learningMaterial}/bookmark', [LearningMaterialController::class, 'toggleBookmark'])->name('dashboard.materials.bookmark');
     Route::post('/dashboard/materials/{learningMaterial}/complete', [LearningMaterialController::class, 'complete'])->name('dashboard.materials.complete');
     Route::get('/dashboard/materials/{learningMaterial}/file', [LearningMaterialController::class, 'file'])->name('dashboard.materials.file');
@@ -38,6 +43,14 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/dashboard/notifications/{notification}/read', [NotificationController::class, 'read'])->name('dashboard.notifications.read');
     Route::post('/dashboard/notifications/read-all', [NotificationController::class, 'readAll'])->name('dashboard.notifications.read-all');
     Route::post('/dashboard/notifications/preferences', [NotificationController::class, 'preference'])->name('dashboard.notifications.preference');
-    Route::get('/subjects', fn () => redirect()->route('dashboard')->withFragment('materials'))->name('subjects');
+    Route::get('/subjects', fn () => redirect('/dashboard?materials=subjects#materials'))->name('subjects.index');
+    Route::get('/subjects/catalog', [SubjectsController::class, 'catalog'])->name('subjects.catalog');
+    Route::post('/subjects/{subject}/selection', [SubjectsController::class, 'select'])->name('subjects.select');
+    Route::put('/subjects/{subject}/selection', [SubjectsController::class, 'update'])->name('subjects.update');
+    Route::delete('/subjects/{subject}/selection', [SubjectsController::class, 'destroy'])->name('subjects.destroy');
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+    Route::post('/dashboard/profile', [TutorApplicationController::class, 'updateProfile'])->name('dashboard.profile.update');
+    Route::get('/dashboard/profile/photo/{userId}', [TutorApplicationController::class, 'photo'])->whereNumber('userId')->name('dashboard.profile.photo');
+    Route::post('/dashboard/profile/tutor-application', [TutorApplicationController::class, 'submit'])->middleware('role:student')->name('dashboard.tutor-applications.store');
+    Route::post('/dashboard/admin/tutor-applications/{tutorApplication}/decision', [TutorApplicationController::class, 'decide'])->middleware('role:admin')->name('dashboard.admin.tutor-applications.decide');
 });

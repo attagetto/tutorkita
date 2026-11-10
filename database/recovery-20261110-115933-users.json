@@ -1,0 +1,20 @@
+[
+    {
+        "id": 1,
+        "name": "gusti prabu krista",
+        "email": "gusti.krista@gmail.com",
+        "phone": null,
+        "contact": "gusti.krista@gmail.com",
+        "password": "$2y$12$rV5u9SxOzp0uVCryLbHbluPjpU08zu.fLL/DMBHLycgK350JoCLZC",
+        "created_at": "2026-10-27T05:18:49+00:00"
+    },
+    {
+        "id": 2,
+        "name": "agus surya ningsih",
+        "email": "aguslaparibu@gmail.com",
+        "phone": null,
+        "contact": "aguslaparibu@gmail.com",
+        "password": "$2y$12$f8TpgL7u8Zge2tnH72nO8OmRv0dXboTAVj8A4BvLh9rYip/TVadVe",
+        "created_at": "2026-10-27T05:19:34+00:00"
+    }
+]

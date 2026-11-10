@@ -2,6 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\LearningMaterial;
+use App\Models\LearningSession;
+use App\Models\MaterialProgress;
+use App\Models\Subject;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -152,6 +157,56 @@ class AuthenticationTest extends TestCase
             ->assertSee('data-catalog-pagination', false);
 
         $this->assertSame(24, substr_count($response->getContent(), 'data-catalog-card'));
+    }
+
+    public function test_dashboard_summary_and_schedule_use_the_signed_in_students_database_records(): void
+    {
+        $this->post('/register', $this->registrationData('Budi', 'budi@test.com', 'Budi123!'));
+        $this->post('/login', ['contact' => 'budi@test.com', 'password' => 'Budi123!']);
+
+        $this->seed(\Database\Seeders\SubjectCatalogSeeder::class);
+        $this->seed(\Database\Seeders\LearningMaterialSeeder::class);
+
+        $studentId = (string) auth()->id();
+        $subject = Subject::query()->where('name', 'Matematika')->firstOrFail();
+        $gradeId = DB::table('grade_levels')->where('name', 'SMP')->value('id');
+        DB::table('student_subjects')->insert([
+            'student_id' => $studentId,
+            'subject_id' => $subject->id,
+            'grade_level_id' => $gradeId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $material = LearningMaterial::query()->where('slug', 'persamaan-kuadrat')->firstOrFail();
+        MaterialProgress::query()->create([
+            'student_id' => $studentId,
+            'learning_material_id' => $material->id,
+            'last_opened_at' => now(),
+            'completed_at' => now(),
+        ]);
+        LearningSession::query()->create([
+            'student_id' => $studentId,
+            'tutor_name' => 'Nadia Putri',
+            'tutor_university' => 'Universitas Indonesia',
+            'tutor_major' => 'Pendidikan Matematika',
+            'subject' => 'Matematika',
+            'topic' => 'Persamaan Kuadrat',
+            'grade_level' => 'SMP',
+            'starts_at' => now()->copy()->startOfDay()->addHours(16),
+            'duration_minutes' => 60,
+            'meeting_platform' => 'Google Meet',
+            'status' => 'pending',
+        ]);
+
+        $this->get('/dashboard')->assertOk()
+            ->assertSee('<div class="stat-value">1</div><div class="stat-label">Mata Pelajaran Aktif</div>', false)
+            ->assertSee('<div class="stat-value">1</div><div class="stat-label">Jadwal Hari Ini</div>', false)
+            ->assertSee('<div class="stat-value">1</div><div class="stat-label">Sesi Belajar</div>', false)
+            ->assertSee('<div class="stat-value">13%</div><div class="stat-label">Progress Belajar</div>', false)
+            ->assertSeeText('Persamaan Kuadrat')
+            ->assertSeeText('Nadia Putri')
+            ->assertSee('data-schedule-item', false);
     }
 
     /** @return array<string, string> */

@@ -7,6 +7,8 @@ use App\Support\LocalUserStore;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\UserProvider;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class FileUserProvider implements UserProvider
 {
@@ -70,6 +72,19 @@ class FileUserProvider implements UserProvider
     /** @param array<string, mixed> $record */
     private function makeUser(array $record): User
     {
+        $role = $record['role'] ?? 'student';
+        if (Schema::hasTable('user_roles')) {
+            $storedRole = DB::table('user_roles')->where('user_id', (string) $record['id'])->value('role');
+            if (is_string($storedRole)) {
+                $role = $storedRole;
+            } else {
+                DB::table('user_roles')->insertOrIgnore([
+                    'user_id' => (string) $record['id'], 'role' => in_array($role, ['student', 'tutor', 'admin'], true) ? $role : 'student',
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+                $role = DB::table('user_roles')->where('user_id', (string) $record['id'])->value('role') ?? 'student';
+            }
+        }
         $user = new User;
         $user->forceFill([
             'id' => $record['id'],
@@ -77,7 +92,8 @@ class FileUserProvider implements UserProvider
             'email' => $record['email'] ?? $record['phone'] ?? null,
             'phone' => $record['phone'] ?? null,
             'password' => $record['password'],
-            'role' => $record['role'] ?? 'student',
+            'role' => $role,
+            'avatar_path' => $record['avatar_path'] ?? null,
             'created_at' => $record['created_at'],
         ]);
 
